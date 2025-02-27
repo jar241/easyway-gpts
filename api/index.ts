@@ -3,6 +3,12 @@ import axios from "axios";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
 import { findAccessibilityFacilitiesAlongRoute, AccessibilityType } from './accessibility-data';
+import { 
+  getStationFacilities, 
+  convertToAccessibilityFacility, 
+  fetchRealtimeSubwayArrival,
+  getTransitRouteWithAccessibility
+} from './seoul-api';
 
 // 환경 변수 로드
 dotenv.config();
@@ -17,65 +23,60 @@ app.get("/get-transit-directions", async (req, res) => {
 
   console.log("Query parameters:", { start, goal, includeAccessibility });
 
-  // 네이버 API는 대중교통 경로를 지원하지 않으므로 자동차 경로 API를 사용
-  const url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving";
-  const headers = {
-    "X-NCP-APIGW-API-KEY-ID": process.env.NAVER_CLIENT_ID,
-    "X-NCP-APIGW-API-KEY": process.env.NAVER_CLIENT_SECRET,
-  };
-
-  console.log("Request URL:", url);
-  console.log("Request headers:", headers);
-
   try {
-    const response = await axios.get(url, {
-      params: { start, goal },
-      headers: headers,
-    });
+    // 1. 좌표를 이용하여 가장 가까운 역 찾기 (실제로는 역 검색 API 필요)
+    // 여기서는 간단한 예시로 고정된 역 이름 사용
+    const startCoords = (start as string).split(',').map(Number);
+    const goalCoords = (goal as string).split(',').map(Number);
+    
+    // 좌표에 따라 가장 가까운 역 결정 (실제로는 더 정교한 알고리즘 필요)
+    const startStation = getClosestStation(startCoords);
+    const endStation = getClosestStation(goalCoords);
+    
+    console.log(`Closest stations: ${startStation} to ${endStation}`);
+    
+    // 2. 네이버 API를 사용하여 자동차 경로 정보 가져오기 (기본 경로 정보용)
+    const naverUrl = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving";
+    const naverHeaders = {
+      "X-NCP-APIGW-API-KEY-ID": process.env.NAVER_CLIENT_ID,
+      "X-NCP-APIGW-API-KEY": process.env.NAVER_CLIENT_SECRET,
+    };
 
-    console.log("Response status:", response.status);
+    console.log("Request URL:", naverUrl);
+    console.log("Request headers:", naverHeaders);
     
-    // 원본 응답 데이터 (자동차 경로)
-    const naverResponse = response.data;
+    const naverResponse = await axios.get(naverUrl, {
+      params: { start, goal },
+      headers: naverHeaders,
+    });
     
-    // 자동차 경로를 대중교통 경로 형식으로 변환
-    const transitResponse = convertDrivingToTransit(naverResponse);
+    console.log("Naver API response status:", naverResponse.status);
     
-    // 접근성 정보를 포함할지 여부 확인
-    if (includeAccessibility === 'true' && transitResponse.route) {
-      // 경로 정보 추출
-      const routeData = transitResponse.route.traoptimal?.[0];
+    // 3. 자동차 경로를 대중교통 경로 형식으로 변환
+    const transitResponse = convertDrivingToTransit(naverResponse.data);
+    
+    // 4. 실시간 지하철 정보와 접근성 정보 통합
+    if (includeAccessibility === 'true') {
+      // 서울 열린데이터광장 API를 사용하여 실제 접근성 정보 가져오기
+      const transitInfo = await getTransitRouteWithAccessibility(startStation, endStation);
       
-      if (routeData && routeData.path) {
-        // 경로 상의 접근성 시설 찾기
-        const path = routeData.path as [number, number][];
-        const accessibilityFacilities = findAccessibilityFacilitiesAlongRoute(
-          path,
-          0.002, // 약 200m 반경
-          [
-            AccessibilityType.ELEVATOR,
-            AccessibilityType.ESCALATOR,
-            AccessibilityType.WHEELCHAIR_RAMP,
-            AccessibilityType.ACCESSIBLE_TOILET,
-            AccessibilityType.TACTILE_PAVING,
-            AccessibilityType.LOW_FLOOR_BUS
-          ]
-        );
-        
-        // 응답에 접근성 정보 추가
-        const enhancedResponse = {
-          ...transitResponse,
-          accessibility: {
-            facilities: accessibilityFacilities,
-            count: accessibilityFacilities.length
+      // 응답에 실시간 지하철 정보와 접근성 정보 추가
+      const enhancedResponse = {
+        ...transitResponse,
+        realtime: {
+          startStation: {
+            name: startStation,
+            arrivals: transitInfo.route.departures
+          },
+          endStation: {
+            name: endStation,
+            arrivals: transitInfo.route.arrivals
           }
-        };
-        
-        res.status(200).json(enhancedResponse);
-      } else {
-        // 경로 정보가 없는 경우 변환된 응답 반환
-        res.status(200).json(transitResponse);
-      }
+        },
+        accessibility: transitInfo.accessibility
+      };
+      
+      res.status(200).json(enhancedResponse);
     } else {
       // 접근성 정보를 포함하지 않는 경우 변환된 응답 반환
       res.status(200).json(transitResponse);
@@ -91,6 +92,39 @@ app.get("/get-transit-directions", async (req, res) => {
     });
   }
 });
+
+// 좌표에 따라 가장 가까운 역 찾기 (간단한 예시)
+function getClosestStation(coords: number[]): string {
+  // 주요 역 좌표 (경도, 위도)
+  const stations = [
+    { name: '강남역', coords: [127.0276, 37.4979] },
+    { name: '서울역', coords: [126.9707, 37.5550] },
+    { name: '홍대입구역', coords: [126.9240, 37.5570] },
+    { name: '여의도역', coords: [126.9249, 37.5215] },
+    { name: '청량리역', coords: [127.0480, 37.5800] },
+    { name: '잠실역', coords: [127.1000, 37.5130] },
+    { name: '신촌역', coords: [126.9370, 37.5550] },
+    { name: '종로3가역', coords: [126.9920, 37.5710] }
+  ];
+  
+  // 가장 가까운 역 찾기
+  let closestStation = stations[0];
+  let minDistance = Number.MAX_VALUE;
+  
+  for (const station of stations) {
+    const distance = Math.sqrt(
+      Math.pow(station.coords[0] - coords[0], 2) +
+      Math.pow(station.coords[1] - coords[1], 2)
+    );
+    
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestStation = station;
+    }
+  }
+  
+  return closestStation.name;
+}
 
 // 자동차 경로를 대중교통 경로 형식으로 변환하는 함수
 function convertDrivingToTransit(drivingResponse: any): any {
