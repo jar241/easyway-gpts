@@ -7,6 +7,265 @@ servers:
   - url: https://easyway-gpts.vercel.app
     description: Vercel deployment server
 paths:
+  /get-transit-directions:
+    get:
+      operationId: getTransitDirections
+      summary: Retrieve public transit directions between two points with accessibility information.
+      description: Returns public transit route information (subway and bus) from the start coordinates to the goal coordinates with accessibility information.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: Starting point coordinates (longitude,latitude).
+          schema:
+            type: string
+            example: "127.0735,37.5505"
+        - name: goal
+          in: query
+          required: true
+          description: Destination coordinates (longitude,latitude).
+          schema:
+            type: string
+            example: "127.0291,37.5894"
+        - name: includeAccessibility
+          in: query
+          required: false
+          description: Whether to include accessibility information in the response.
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "true"
+            example: "true"
+      responses:
+        '200':
+          description: Successful response with transit route details and accessibility information.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: Response code (0 for success).
+                    example: 0
+                  message:
+                    type: string
+                    description: Response message.
+                    example: "success"
+                  route:
+                    type: object
+                    description: Route information.
+                    properties:
+                      traoptimal:
+                        type: array
+                        description: Optimal transit route.
+                        items:
+                          type: object
+                          properties:
+                            summary:
+                              type: object
+                              description: Summary of the route.
+                              properties:
+                                start:
+                                  type: object
+                                  description: Starting point information.
+                                  properties:
+                                    location:
+                                      type: array
+                                      description: Coordinates [longitude, latitude].
+                                      items:
+                                        type: number
+                                goal:
+                                  type: object
+                                  description: Destination information.
+                                  properties:
+                                    location:
+                                      type: array
+                                      description: Coordinates [longitude, latitude].
+                                      items:
+                                        type: number
+                                    dir:
+                                      type: integer
+                                      description: Direction.
+                                distance:
+                                  type: integer
+                                  description: Total distance in meters.
+                                duration:
+                                  type: integer
+                                  description: Total duration in seconds.
+                                bbox:
+                                  type: array
+                                  description: Bounding box of the route.
+                                  items:
+                                    type: array
+                                    items:
+                                      type: number
+                                fare:
+                                  type: integer
+                                  description: Transit fare in KRW.
+                            path:
+                              type: array
+                              description: Array of coordinates representing the path.
+                              items:
+                                type: array
+                                description: Coordinate [longitude, latitude].
+                                items:
+                                  type: number
+                            legs:
+                              type: array
+                              description: Legs of the transit route.
+                              items:
+                                type: object
+                                properties:
+                                  distance:
+                                    type: integer
+                                    description: Distance of this leg in meters.
+                                  duration:
+                                    type: integer
+                                    description: Duration of this leg in seconds.
+                                  steps:
+                                    type: array
+                                    description: Steps in this leg.
+                                    items:
+                                      type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          description: Type of step (e.g., WALK, SUBWAY, BUS).
+                                          enum: [WALK, SUBWAY, BUS]
+                                        distance:
+                                          type: integer
+                                          description: Distance of this step in meters.
+                                        duration:
+                                          type: integer
+                                          description: Duration of this step in seconds.
+                                        stations:
+                                          type: array
+                                          description: Stations in this step.
+                                          items:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                                description: Name of the station.
+                                              location:
+                                                type: array
+                                                description: Coordinates [longitude, latitude].
+                                                items:
+                                                  type: number
+                                        lane:
+                                          type: object
+                                          description: Lane information for transit steps.
+                                          properties:
+                                            name:
+                                              type: string
+                                              description: Name of the lane.
+                                            type:
+                                              type: integer
+                                              description: Type of lane.
+                                            subwayCode:
+                                              type: integer
+                                              description: Subway line code.
+                                            busNo:
+                                              type: string
+                                              description: Bus number.
+                  accessibility:
+                    type: object
+                    description: Accessibility information along the route.
+                    properties:
+                      facilities:
+                        type: array
+                        description: List of accessibility facilities along the route.
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: Unique identifier for the facility.
+                            type:
+                              type: string
+                              description: Type of accessibility facility.
+                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving, low_floor_bus, wheelchair_lift, accessible_entrance, braille_signage, audio_guidance]
+                            location:
+                              type: array
+                              description: Coordinates [longitude, latitude].
+                              items:
+                                type: number
+                            name:
+                              type: string
+                              description: Name of the facility.
+                            description:
+                              type: string
+                              description: Detailed description of the facility.
+                            isOperational:
+                              type: boolean
+                              description: Whether the facility is currently operational.
+                            operatingHours:
+                              type: string
+                              description: Operating hours of the facility.
+                            stationName:
+                              type: string
+                              description: Name of the station where the facility is located.
+                            lineNumber:
+                              type: string
+                              description: Line number of the station.
+                            exitNumber:
+                              type: string
+                              description: Exit number where the facility is located.
+                      count:
+                        type: integer
+                        description: Total number of accessibility facilities found along the route.
+        '400':
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    description: Detailed error information.
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    properties:
+                      error:
+                        type: object
+                        properties:
+                          errorCode:
+                            type: string
+                            description: Error code.
+                          message:
+                            type: string
+                            description: Error message.
+                          details:
+                            type: string
+                            description: Detailed error information.
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    description: Detailed error information.
   /get-directions:
     get:
       operationId: getDirections
@@ -187,7 +446,7 @@ paths:
                             type:
                               type: string
                               description: Type of accessibility facility.
-                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving]
+                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving, low_floor_bus, wheelchair_lift, accessible_entrance, braille_signage, audio_guidance]
                             location:
                               type: array
                               description: Coordinates [longitude, latitude].
@@ -205,6 +464,15 @@ paths:
                             operatingHours:
                               type: string
                               description: Operating hours of the facility.
+                            stationName:
+                              type: string
+                              description: Name of the station where the facility is located.
+                            lineNumber:
+                              type: string
+                              description: Line number of the station.
+                            exitNumber:
+                              type: string
+                              description: Exit number where the facility is located.
                       count:
                         type: integer
                         description: Total number of accessibility facilities found along the route.

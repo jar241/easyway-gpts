@@ -11,6 +11,83 @@ const app = express();
 
 app.get("/", (req, res) => res.send("Express on Vercel"));
 
+// 대중교통 경로 API 엔드포인트
+app.get("/get-transit-directions", async (req, res) => {
+  const { start, goal, includeAccessibility } = req.query;
+
+  console.log("Query parameters:", { start, goal, includeAccessibility });
+
+  const url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/transit";
+  const headers = {
+    "X-NCP-APIGW-API-KEY-ID": process.env.NAVER_CLIENT_ID,
+    "X-NCP-APIGW-API-KEY": process.env.NAVER_CLIENT_SECRET,
+  };
+
+  console.log("Request URL:", url);
+  console.log("Request headers:", headers);
+
+  try {
+    const response = await axios.get(url, {
+      params: { start, goal },
+      headers: headers,
+    });
+
+    console.log("Response status:", response.status);
+    
+    // 원본 응답 데이터
+    const naverResponse = response.data;
+    
+    // 접근성 정보를 포함할지 여부 확인
+    if (includeAccessibility === 'true' && naverResponse.route) {
+      // 경로 정보 추출 (대중교통은 traoptimal이 기본값)
+      const routeData = naverResponse.route.traoptimal?.[0];
+      
+      if (routeData && routeData.path) {
+        // 경로 상의 접근성 시설 찾기
+        const path = routeData.path as [number, number][];
+        const accessibilityFacilities = findAccessibilityFacilitiesAlongRoute(
+          path,
+          0.002, // 약 200m 반경
+          [
+            AccessibilityType.ELEVATOR,
+            AccessibilityType.ESCALATOR,
+            AccessibilityType.WHEELCHAIR_RAMP,
+            AccessibilityType.ACCESSIBLE_TOILET,
+            AccessibilityType.TACTILE_PAVING
+          ]
+        );
+        
+        // 응답에 접근성 정보 추가
+        const enhancedResponse = {
+          ...naverResponse,
+          accessibility: {
+            facilities: accessibilityFacilities,
+            count: accessibilityFacilities.length
+          }
+        };
+        
+        res.status(200).json(enhancedResponse);
+      } else {
+        // 경로 정보가 없는 경우 원본 응답 반환
+        res.status(200).json(naverResponse);
+      }
+    } else {
+      // 접근성 정보를 포함하지 않는 경우 원본 응답 반환
+      res.status(200).json(naverResponse);
+    }
+  } catch (error: any) {
+    console.error("Error:", error.message);
+    if (error.response) {
+      console.error("Error response:", error.response.data);
+    }
+    res.status(error.response ? error.response.status : 500).json({
+      error: error.message,
+      details: error.response ? error.response.data : null,
+    });
+  }
+});
+
+// 기존 자동차 경로 API 엔드포인트 (유지)
 app.get("/get-directions", async (req, res) => {
   const { start, goal, option, includeAccessibility } = req.query;
 
