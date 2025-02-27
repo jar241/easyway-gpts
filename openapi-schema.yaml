@@ -1,0 +1,261 @@
+openapi: 3.1.0
+info:
+  title: Directions API with Accessibility Information
+  description: API to retrieve directions between two coordinates with accessibility information such as elevators and escalators.
+  version: 1.0.0
+servers:
+  - url: https://easyway-gpts.vercel.app
+    description: Vercel deployment server
+paths:
+  /get-directions:
+    get:
+      operationId: getDirections
+      summary: Retrieve directions between two points with optional accessibility information.
+      description: Returns route information from the start coordinates to the goal coordinates with an optional route preference and accessibility information.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: Starting point coordinates (longitude,latitude).
+          schema:
+            type: string
+            example: "127.0735,37.5505"
+        - name: goal
+          in: query
+          required: true
+          description: Destination coordinates (longitude,latitude).
+          schema:
+            type: string
+            example: "127.0291,37.5894"
+        - name: option
+          in: query
+          required: false
+          description: Route preference (e.g., "trafast" for fastest route considering traffic).
+          schema:
+            type: string
+            enum: [trafast, shortest, scenic]
+            default: "trafast"
+            example: "trafast"
+        - name: includeAccessibility
+          in: query
+          required: false
+          description: Whether to include accessibility information in the response.
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "true"
+            example: "true"
+      responses:
+        '200':
+          description: Successful response with route details and accessibility information.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: Response code (0 for success).
+                    example: 0
+                  message:
+                    type: string
+                    description: Response message.
+                    example: "success"
+                  route:
+                    type: object
+                    description: Route information.
+                    properties:
+                      trafast:
+                        type: array
+                        description: Fastest route considering traffic.
+                        items:
+                          type: object
+                          properties:
+                            summary:
+                              type: object
+                              description: Summary of the route.
+                              properties:
+                                start:
+                                  type: object
+                                  description: Starting point information.
+                                  properties:
+                                    location:
+                                      type: array
+                                      description: Coordinates [longitude, latitude].
+                                      items:
+                                        type: number
+                                goal:
+                                  type: object
+                                  description: Destination information.
+                                  properties:
+                                    location:
+                                      type: array
+                                      description: Coordinates [longitude, latitude].
+                                      items:
+                                        type: number
+                                    dir:
+                                      type: integer
+                                      description: Direction.
+                                distance:
+                                  type: integer
+                                  description: Total distance in meters.
+                                duration:
+                                  type: integer
+                                  description: Total duration in seconds.
+                                bbox:
+                                  type: array
+                                  description: Bounding box of the route.
+                                  items:
+                                    type: array
+                                    items:
+                                      type: number
+                                tollFare:
+                                  type: integer
+                                  description: Toll fare in KRW.
+                                taxiFare:
+                                  type: integer
+                                  description: Taxi fare in KRW.
+                                fuelPrice:
+                                  type: integer
+                                  description: Fuel price in KRW.
+                            path:
+                              type: array
+                              description: Array of coordinates representing the path.
+                              items:
+                                type: array
+                                description: Coordinate [longitude, latitude].
+                                items:
+                                  type: number
+                            section:
+                              type: array
+                              description: Sections of the route.
+                              items:
+                                type: object
+                                properties:
+                                  pointIndex:
+                                    type: integer
+                                    description: Starting point index in the path.
+                                  pointCount:
+                                    type: integer
+                                    description: Number of points in this section.
+                                  distance:
+                                    type: integer
+                                    description: Distance of this section in meters.
+                                  name:
+                                    type: string
+                                    description: Name of the road or section.
+                                  congestion:
+                                    type: integer
+                                    description: Congestion level.
+                                  speed:
+                                    type: integer
+                                    description: Speed in km/h.
+                            guide:
+                              type: array
+                              description: Guidance information for navigation.
+                              items:
+                                type: object
+                                properties:
+                                  pointIndex:
+                                    type: integer
+                                    description: Point index in the path.
+                                  type:
+                                    type: integer
+                                    description: Type of guidance.
+                                  instructions:
+                                    type: string
+                                    description: Navigation instructions.
+                                  distance:
+                                    type: integer
+                                    description: Distance to the next guidance point.
+                                  duration:
+                                    type: integer
+                                    description: Duration to the next guidance point.
+                  accessibility:
+                    type: object
+                    description: Accessibility information along the route.
+                    properties:
+                      facilities:
+                        type: array
+                        description: List of accessibility facilities along the route.
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: Unique identifier for the facility.
+                            type:
+                              type: string
+                              description: Type of accessibility facility.
+                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving]
+                            location:
+                              type: array
+                              description: Coordinates [longitude, latitude].
+                              items:
+                                type: number
+                            name:
+                              type: string
+                              description: Name of the facility.
+                            description:
+                              type: string
+                              description: Detailed description of the facility.
+                            isOperational:
+                              type: boolean
+                              description: Whether the facility is currently operational.
+                            operatingHours:
+                              type: string
+                              description: Operating hours of the facility.
+                      count:
+                        type: integer
+                        description: Total number of accessibility facilities found along the route.
+        '400':
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    description: Detailed error information.
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    properties:
+                      error:
+                        type: object
+                        properties:
+                          errorCode:
+                            type: string
+                            description: Error code.
+                          message:
+                            type: string
+                            description: Error message.
+                          details:
+                            type: string
+                            description: Detailed error information.
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message.
+                  details:
+                    type: object
+                    description: Detailed error information. 

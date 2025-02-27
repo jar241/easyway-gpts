@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
+import { findAccessibilityFacilitiesAlongRoute, AccessibilityType } from './accessibility-data';
 
 // 환경 변수 로드
 dotenv.config();
@@ -11,9 +12,9 @@ const app = express();
 app.get("/", (req, res) => res.send("Express on Vercel"));
 
 app.get("/get-directions", async (req, res) => {
-  const { start, goal, option } = req.query;
+  const { start, goal, option, includeAccessibility } = req.query;
 
-  console.log("Query parameters:", { start, goal, option });
+  console.log("Query parameters:", { start, goal, option, includeAccessibility });
 
   const url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving";
   const headers = {
@@ -31,10 +32,47 @@ app.get("/get-directions", async (req, res) => {
     });
 
     console.log("Response status:", response.status);
-    console.log("Response data: ", response.data);
-    // console.log("Response data:", JSON.stringify(response.data, null, 2));
-
-    res.status(200).json(response.data);
+    
+    // 원본 응답 데이터
+    const naverResponse = response.data;
+    
+    // 접근성 정보를 포함할지 여부 확인
+    if (includeAccessibility === 'true' && naverResponse.route) {
+      // 경로 정보 추출
+      const routeType = option as string || 'trafast';
+      const routeData = naverResponse.route[routeType]?.[0];
+      
+      if (routeData && routeData.path) {
+        // 경로 상의 접근성 시설 찾기
+        const path = routeData.path as [number, number][];
+        const accessibilityFacilities = findAccessibilityFacilitiesAlongRoute(
+          path,
+          0.002, // 약 200m 반경
+          [
+            AccessibilityType.ELEVATOR,
+            AccessibilityType.ESCALATOR,
+            AccessibilityType.WHEELCHAIR_RAMP
+          ]
+        );
+        
+        // 응답에 접근성 정보 추가
+        const enhancedResponse = {
+          ...naverResponse,
+          accessibility: {
+            facilities: accessibilityFacilities,
+            count: accessibilityFacilities.length
+          }
+        };
+        
+        res.status(200).json(enhancedResponse);
+      } else {
+        // 경로 정보가 없는 경우 원본 응답 반환
+        res.status(200).json(naverResponse);
+      }
+    } else {
+      // 접근성 정보를 포함하지 않는 경우 원본 응답 반환
+      res.status(200).json(naverResponse);
+    }
   } catch (error: any) {
     console.error("Error:", error.message);
     if (error.response) {
