@@ -9,6 +9,11 @@ import {
   fetchRealtimeSubwayArrival,
   getTransitRouteWithAccessibility
 } from './seoul-api';
+import { findNearestStation, findOptimalRoute, addAccessibilityInfoToRoute } from './subway-route';
+import { getRealtimeArrivalInfo } from './realtime-subway';
+import { testTimetableAPI } from './subway-timetable';
+import { testTransferInfo } from './subway-transfer';
+import { testRealtimeAPI } from './realtime-subway';
 
 // 환경 변수 로드
 dotenv.config();
@@ -550,6 +555,109 @@ app.get("/get-directions", async (req, res) => {
       error: error.message,
       details: error.response ? error.response.data : null,
     });
+  }
+});
+
+// 실제 지하철 노선 기반 경로 API 엔드포인트 추가
+app.get('/get-subway-route', async (req: VercelRequest, res: VercelResponse) => {
+  try {
+    const { start, goal, includeAccessibility } = req.query;
+    
+    if (!start || !goal) {
+      return res.status(400).json({ error: '출발지와 목적지 좌표가 필요합니다.' });
+    }
+    
+    // 좌표 파싱
+    const startCoords = start.toString().split(',').map(Number) as [number, number];
+    const goalCoords = goal.toString().split(',').map(Number) as [number, number];
+    
+    // 가장 가까운 역 찾기
+    const startStation = findNearestStation(startCoords);
+    const endStation = findNearestStation(goalCoords);
+    
+    console.log(`Closest stations: ${startStation.name} to ${endStation.name}`);
+    
+    // 최적 경로 탐색
+    const routeInfo = await findOptimalRoute(startStation.name, endStation.name);
+    
+    // 실시간 열차 도착 정보 조회
+    const startStationArrivals = await getRealtimeArrivalInfo(startStation.name);
+    
+    // 접근성 정보 추가
+    let routeWithAccessibility = routeInfo;
+    if (includeAccessibility === 'true') {
+      routeWithAccessibility = await addAccessibilityInfoToRoute(routeInfo);
+    }
+    
+    // 응답 구성
+    const response = {
+      code: 0,
+      message: 'success',
+      route: {
+        summary: {
+          start: {
+            name: startStation.name,
+            line: startStation.line,
+            coordinates: startCoords
+          },
+          end: {
+            name: endStation.name,
+            line: endStation.line,
+            coordinates: goalCoords
+          },
+          totalDuration: routeInfo.totalDuration,
+          totalDurationMinutes: Math.ceil(routeInfo.totalDuration / 60),
+          transfers: routeInfo.transfers
+        },
+        stations: routeInfo.path,
+        transferDetails: routeInfo.transferDetails,
+        realtime: {
+          departures: startStationArrivals
+        }
+      },
+      accessibility: routeWithAccessibility.accessibility
+    };
+    
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('API 오류:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API 테스트 엔드포인트 추가
+app.get('/api-test', async (req: VercelRequest, res: VercelResponse) => {
+  try {
+    const { test } = req.query;
+    let result = {};
+    
+    switch (test) {
+      case 'timetable':
+        result = await testTimetableAPI();
+        break;
+      case 'transfer':
+        result = testTransferInfo();
+        break;
+      case 'realtime':
+        result = await testRealtimeAPI();
+        break;
+      case 'route':
+        const startCoords: [number, number] = [126.9707, 37.5550]; // 서울역
+        const endCoords: [number, number] = [127.0276, 37.4979]; // 강남역
+        const startStation = findNearestStation(startCoords);
+        const endStation = findNearestStation(endCoords);
+        result = await findOptimalRoute(startStation.name, endStation.name);
+        break;
+      default:
+        result = {
+          message: '테스트 유형을 지정해주세요. (timetable, transfer, realtime, route)'
+        };
+    }
+    
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error('테스트 오류:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
