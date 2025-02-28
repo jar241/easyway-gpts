@@ -164,18 +164,61 @@ paths:
     get:
       operationId: getCombinedRoute
       summary: 복합 대중교통 경로 안내
-      description: 출발지와 목적지 좌표를 기반으로 지하철과 버스를 모두 활용한 복합 경로와 접근성 정보를 제공합니다.
+      description: |
+        출발지와 목적지 좌표 또는 주소를 기반으로 지하철과 버스를 모두 활용한 복합 경로와 접근성 정보를 제공합니다.
+        좌표는 여러 형식으로 제공할 수 있으며, 주소를 입력하면 자동으로 좌표로 변환합니다.
+        도보 이동 거리는 최대 2km로 제한되어 현실적인 이동 시간을 계산합니다.
       parameters:
         - name: start
           in: query
-          required: true
-          description: 출발지 좌표 (경도,위도 형식)
+          required: false
+          description: 출발지 좌표 (경도,위도 또는 위도,경도 형식) - 다른 출발지 파라미터가 없을 경우 필수
           schema:
             type: string
         - name: goal
           in: query
-          required: true
-          description: 목적지 좌표 (경도,위도 형식)
+          required: false
+          description: 목적지 좌표 (경도,위도 또는 위도,경도 형식) - 다른 목적지 파라미터가 없을 경우 필수
+          schema:
+            type: string
+        - name: startLat
+          in: query
+          required: false
+          description: 출발지 위도 (startLng와 함께 사용)
+          schema:
+            type: number
+            format: double
+        - name: startLng
+          in: query
+          required: false
+          description: 출발지 경도 (startLat와 함께 사용)
+          schema:
+            type: number
+            format: double
+        - name: goalLat
+          in: query
+          required: false
+          description: 목적지 위도 (goalLng와 함께 사용)
+          schema:
+            type: number
+            format: double
+        - name: goalLng
+          in: query
+          required: false
+          description: 목적지 경도 (goalLat와 함께 사용)
+          schema:
+            type: number
+            format: double
+        - name: startAddress
+          in: query
+          required: false
+          description: 출발지 주소 (한글 주소, 지명, 역 이름 등)
+          schema:
+            type: string
+        - name: goalAddress
+          in: query
+          required: false
+          description: 목적지 주소 (한글 주소, 지명, 역 이름 등)
           schema:
             type: string
         - name: includeAccessibility
@@ -223,6 +266,44 @@ paths:
                       count:
                         type: integer
                         description: 접근성 시설 수
+        '400':
+          description: 잘못된 요청
+        '500':
+          description: 서버 오류
+  
+  /geocode:
+    get:
+      operationId: geocodeAddress
+      summary: 주소를 좌표로 변환
+      description: |
+        한글 주소, 지명, 역 이름 등을 지리적 좌표(경도, 위도)로 변환합니다.
+        네이버 지도 API를 사용하며, 실패 시 내장된 주요 랜드마크 데이터베이스에서 검색합니다.
+      parameters:
+        - name: address
+          in: query
+          required: true
+          description: 변환할 주소 (한글 주소, 지명, 역 이름 등)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 성공적인 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: 변환 성공 여부
+                  coordinates:
+                    type: array
+                    description: 변환된 좌표 [경도, 위도] 형식
+                    items:
+                      type: number
+                  message:
+                    type: string
+                    description: 응답 메시지
         '400':
           description: 잘못된 요청
         '500':
