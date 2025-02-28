@@ -1,44 +1,41 @@
 openapi: 3.1.0
 info:
-  title: Directions API with Accessibility Information
-  description: API to retrieve directions between two coordinates with accessibility information such as elevators and escalators.
+  title: 서울 대중교통 경로 안내 API
+  description: 서울 지하철 및 버스를 이용한 경로 안내와 접근성 정보를 제공하는 API
   version: 1.0.0
 servers:
   - url: https://easyway-gpts.vercel.app
-    description: Vercel deployment server
+    description: Vercel 배포 서버
 paths:
   /get-transit-directions:
     get:
       operationId: getTransitDirections
-      summary: Retrieve public transit directions between two points with accessibility information.
-      description: Returns public transit route information (subway and bus) from the start coordinates to the goal coordinates with accessibility information.
+      summary: 대중교통 경로 안내 (시뮬레이션)
+      description: 출발지와 목적지 좌표를 기반으로 대중교통 경로와 접근성 정보를 제공합니다. 이 API는 실제 대중교통 데이터가 아닌 시뮬레이션된 경로를 제공합니다.
       parameters:
         - name: start
           in: query
           required: true
-          description: Starting point coordinates (longitude,latitude).
+          description: 출발지 좌표 (경도,위도 형식)
           schema:
             type: string
-            example: "127.0735,37.5505"
         - name: goal
           in: query
           required: true
-          description: Destination coordinates (longitude,latitude).
+          description: 목적지 좌표 (경도,위도 형식)
           schema:
             type: string
-            example: "127.0291,37.5894"
         - name: includeAccessibility
           in: query
           required: false
-          description: Whether to include accessibility information in the response.
+          description: 접근성 정보 포함 여부 (true/false)
           schema:
             type: string
-            enum: ["true", "false"]
-            default: "true"
-            example: "true"
+            enum: [true, false]
+            default: true
       responses:
         '200':
-          description: Successful response with transit route details and accessibility information.
+          description: 성공적인 응답
           content:
             application/json:
               schema:
@@ -46,267 +43,50 @@ paths:
                 properties:
                   code:
                     type: integer
-                    description: Response code (0 for success).
-                    example: 0
+                    description: 응답 코드
                   message:
                     type: string
-                    description: Response message.
-                    example: "success"
+                    description: 응답 메시지
                   route:
                     type: object
-                    description: Route information.
-                    properties:
-                      traoptimal:
-                        type: array
-                        description: Optimal transit route.
-                        items:
-                          type: object
-                          properties:
-                            summary:
-                              type: object
-                              description: Summary of the route.
-                              properties:
-                                start:
-                                  type: object
-                                  description: Starting point information.
-                                  properties:
-                                    location:
-                                      type: array
-                                      description: Coordinates [longitude, latitude].
-                                      items:
-                                        type: number
-                                goal:
-                                  type: object
-                                  description: Destination information.
-                                  properties:
-                                    location:
-                                      type: array
-                                      description: Coordinates [longitude, latitude].
-                                      items:
-                                        type: number
-                                    dir:
-                                      type: integer
-                                      description: Direction.
-                                distance:
-                                  type: integer
-                                  description: Total distance in meters.
-                                duration:
-                                  type: integer
-                                  description: Total duration in seconds.
-                                bbox:
-                                  type: array
-                                  description: Bounding box of the route.
-                                  items:
-                                    type: array
-                                    items:
-                                      type: number
-                                fare:
-                                  type: integer
-                                  description: Transit fare in KRW.
-                            path:
-                              type: array
-                              description: Array of coordinates representing the path.
-                              items:
-                                type: array
-                                description: Coordinate [longitude, latitude].
-                                items:
-                                  type: number
-                            legs:
-                              type: array
-                              description: Legs of the transit route.
-                              items:
-                                type: object
-                                properties:
-                                  distance:
-                                    type: integer
-                                    description: Distance of this leg in meters.
-                                  duration:
-                                    type: integer
-                                    description: Duration of this leg in seconds.
-                                  steps:
-                                    type: array
-                                    description: Steps in this leg.
-                                    items:
-                                      type: object
-                                      properties:
-                                        type:
-                                          type: string
-                                          description: Type of step (e.g., WALK, SUBWAY, BUS).
-                                          enum: [WALK, SUBWAY, BUS]
-                                        distance:
-                                          type: integer
-                                          description: Distance of this step in meters.
-                                        duration:
-                                          type: integer
-                                          description: Duration of this step in seconds.
-                                        stations:
-                                          type: array
-                                          description: Stations in this step.
-                                          items:
-                                            type: object
-                                            properties:
-                                              name:
-                                                type: string
-                                                description: Name of the station.
-                                              location:
-                                                type: array
-                                                description: Coordinates [longitude, latitude].
-                                                items:
-                                                  type: number
-                                        lane:
-                                          type: object
-                                          description: Lane information for transit steps.
-                                          properties:
-                                            name:
-                                              type: string
-                                              description: Name of the lane.
-                                            type:
-                                              type: integer
-                                              description: Type of lane.
-                                            subwayCode:
-                                              type: integer
-                                              description: Subway line code.
-                                            busNo:
-                                              type: string
-                                              description: Bus number.
+                    description: 경로 정보
                   accessibility:
                     type: object
-                    description: Accessibility information along the route.
-                    properties:
-                      facilities:
-                        type: array
-                        description: List of accessibility facilities along the route.
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                              description: Unique identifier for the facility.
-                            type:
-                              type: string
-                              description: Type of accessibility facility.
-                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving, low_floor_bus, wheelchair_lift, accessible_entrance, braille_signage, audio_guidance]
-                            location:
-                              type: array
-                              description: Coordinates [longitude, latitude].
-                              items:
-                                type: number
-                            name:
-                              type: string
-                              description: Name of the facility.
-                            description:
-                              type: string
-                              description: Detailed description of the facility.
-                            isOperational:
-                              type: boolean
-                              description: Whether the facility is currently operational.
-                            operatingHours:
-                              type: string
-                              description: Operating hours of the facility.
-                            stationName:
-                              type: string
-                              description: Name of the station where the facility is located.
-                            lineNumber:
-                              type: string
-                              description: Line number of the station.
-                            exitNumber:
-                              type: string
-                              description: Exit number where the facility is located.
-                      count:
-                        type: integer
-                        description: Total number of accessibility facilities found along the route.
+                    description: 접근성 정보
         '400':
-          description: Invalid request parameters.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    description: Detailed error information.
-        '401':
-          description: Authentication failed.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    properties:
-                      error:
-                        type: object
-                        properties:
-                          errorCode:
-                            type: string
-                            description: Error code.
-                          message:
-                            type: string
-                            description: Error message.
-                          details:
-                            type: string
-                            description: Detailed error information.
+          description: 잘못된 요청
         '500':
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    description: Detailed error information.
-  /get-directions:
+          description: 서버 오류
+  
+  /get-subway-route:
     get:
-      operationId: getDirections
-      summary: Retrieve directions between two points with optional accessibility information.
-      description: Returns route information from the start coordinates to the goal coordinates with an optional route preference and accessibility information.
+      operationId: getSubwayRoute
+      summary: 지하철 경로 안내
+      description: 출발지와 목적지 좌표를 기반으로 실제 지하철 노선도를 활용한 경로와 접근성 정보를 제공합니다.
       parameters:
         - name: start
           in: query
           required: true
-          description: Starting point coordinates (longitude,latitude).
+          description: 출발지 좌표 (경도,위도 형식)
           schema:
             type: string
-            example: "127.0735,37.5505"
         - name: goal
           in: query
           required: true
-          description: Destination coordinates (longitude,latitude).
+          description: 목적지 좌표 (경도,위도 형식)
           schema:
             type: string
-            example: "127.0291,37.5894"
-        - name: option
-          in: query
-          required: false
-          description: Route preference (e.g., "trafast" for fastest route considering traffic).
-          schema:
-            type: string
-            enum: [trafast, shortest, scenic]
-            default: "trafast"
-            example: "trafast"
         - name: includeAccessibility
           in: query
           required: false
-          description: Whether to include accessibility information in the response.
+          description: 접근성 정보 포함 여부 (true/false)
           schema:
             type: string
-            enum: ["true", "false"]
-            default: "true"
-            example: "true"
+            enum: [true, false]
+            default: true
       responses:
         '200':
-          description: Successful response with route details and accessibility information.
+          description: 성공적인 응답
           content:
             application/json:
               schema:
@@ -314,216 +94,136 @@ paths:
                 properties:
                   code:
                     type: integer
-                    description: Response code (0 for success).
-                    example: 0
+                    description: 응답 코드
                   message:
                     type: string
-                    description: Response message.
-                    example: "success"
+                    description: 응답 메시지
                   route:
                     type: object
-                    description: Route information.
-                    properties:
-                      trafast:
-                        type: array
-                        description: Fastest route considering traffic.
-                        items:
-                          type: object
-                          properties:
-                            summary:
-                              type: object
-                              description: Summary of the route.
-                              properties:
-                                start:
-                                  type: object
-                                  description: Starting point information.
-                                  properties:
-                                    location:
-                                      type: array
-                                      description: Coordinates [longitude, latitude].
-                                      items:
-                                        type: number
-                                goal:
-                                  type: object
-                                  description: Destination information.
-                                  properties:
-                                    location:
-                                      type: array
-                                      description: Coordinates [longitude, latitude].
-                                      items:
-                                        type: number
-                                    dir:
-                                      type: integer
-                                      description: Direction.
-                                distance:
-                                  type: integer
-                                  description: Total distance in meters.
-                                duration:
-                                  type: integer
-                                  description: Total duration in seconds.
-                                bbox:
-                                  type: array
-                                  description: Bounding box of the route.
-                                  items:
-                                    type: array
-                                    items:
-                                      type: number
-                                tollFare:
-                                  type: integer
-                                  description: Toll fare in KRW.
-                                taxiFare:
-                                  type: integer
-                                  description: Taxi fare in KRW.
-                                fuelPrice:
-                                  type: integer
-                                  description: Fuel price in KRW.
-                            path:
-                              type: array
-                              description: Array of coordinates representing the path.
-                              items:
-                                type: array
-                                description: Coordinate [longitude, latitude].
-                                items:
-                                  type: number
-                            section:
-                              type: array
-                              description: Sections of the route.
-                              items:
-                                type: object
-                                properties:
-                                  pointIndex:
-                                    type: integer
-                                    description: Starting point index in the path.
-                                  pointCount:
-                                    type: integer
-                                    description: Number of points in this section.
-                                  distance:
-                                    type: integer
-                                    description: Distance of this section in meters.
-                                  name:
-                                    type: string
-                                    description: Name of the road or section.
-                                  congestion:
-                                    type: integer
-                                    description: Congestion level.
-                                  speed:
-                                    type: integer
-                                    description: Speed in km/h.
-                            guide:
-                              type: array
-                              description: Guidance information for navigation.
-                              items:
-                                type: object
-                                properties:
-                                  pointIndex:
-                                    type: integer
-                                    description: Point index in the path.
-                                  type:
-                                    type: integer
-                                    description: Type of guidance.
-                                  instructions:
-                                    type: string
-                                    description: Navigation instructions.
-                                  distance:
-                                    type: integer
-                                    description: Distance to the next guidance point.
-                                  duration:
-                                    type: integer
-                                    description: Duration to the next guidance point.
+                    description: 경로 정보
                   accessibility:
                     type: object
-                    description: Accessibility information along the route.
+                    description: 접근성 정보
+        '400':
+          description: 잘못된 요청
+        '500':
+          description: 서버 오류
+  
+  /get-bus-route:
+    get:
+      operationId: getBusRoute
+      summary: 버스 경로 안내
+      description: 출발지와 목적지 좌표를 기반으로 버스 경로와 접근성 정보를 제공합니다.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: 출발지 좌표 (경도,위도 형식)
+          schema:
+            type: string
+        - name: goal
+          in: query
+          required: true
+          description: 목적지 좌표 (경도,위도 형식)
+          schema:
+            type: string
+        - name: includeAccessibility
+          in: query
+          required: false
+          description: 접근성 정보 포함 여부 (true/false)
+          schema:
+            type: string
+            enum: [true, false]
+            default: true
+      responses:
+        '200':
+          description: 성공적인 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 응답 코드
+                  message:
+                    type: string
+                    description: 응답 메시지
+                  route:
+                    type: object
+                    description: 경로 정보
+                  accessibility:
+                    type: object
+                    description: 접근성 정보
+        '400':
+          description: 잘못된 요청
+        '500':
+          description: 서버 오류
+  
+  /get-combined-route:
+    get:
+      operationId: getCombinedRoute
+      summary: 복합 대중교통 경로 안내
+      description: 출발지와 목적지 좌표를 기반으로 지하철과 버스를 모두 활용한 복합 경로와 접근성 정보를 제공합니다.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: 출발지 좌표 (경도,위도 형식)
+          schema:
+            type: string
+        - name: goal
+          in: query
+          required: true
+          description: 목적지 좌표 (경도,위도 형식)
+          schema:
+            type: string
+        - name: includeAccessibility
+          in: query
+          required: false
+          description: 접근성 정보 포함 여부 (true/false)
+          schema:
+            type: string
+            enum: [true, false]
+            default: true
+      responses:
+        '200':
+          description: 성공적인 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 응답 코드
+                  message:
+                    type: string
+                    description: 응답 메시지
+                  route:
+                    type: object
+                    description: 경로 정보
+                    properties:
+                      summary:
+                        type: object
+                        description: 경로 요약 정보
+                      legs:
+                        type: array
+                        description: 경로 구간 정보
+                      realtime:
+                        type: object
+                        description: 실시간 정보
+                  accessibility:
+                    type: object
+                    description: 접근성 정보
                     properties:
                       facilities:
                         type: array
-                        description: List of accessibility facilities along the route.
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                              description: Unique identifier for the facility.
-                            type:
-                              type: string
-                              description: Type of accessibility facility.
-                              enum: [elevator, escalator, wheelchair_ramp, accessible_toilet, tactile_paving, low_floor_bus, wheelchair_lift, accessible_entrance, braille_signage, audio_guidance]
-                            location:
-                              type: array
-                              description: Coordinates [longitude, latitude].
-                              items:
-                                type: number
-                            name:
-                              type: string
-                              description: Name of the facility.
-                            description:
-                              type: string
-                              description: Detailed description of the facility.
-                            isOperational:
-                              type: boolean
-                              description: Whether the facility is currently operational.
-                            operatingHours:
-                              type: string
-                              description: Operating hours of the facility.
-                            stationName:
-                              type: string
-                              description: Name of the station where the facility is located.
-                            lineNumber:
-                              type: string
-                              description: Line number of the station.
-                            exitNumber:
-                              type: string
-                              description: Exit number where the facility is located.
+                        description: 접근성 시설 목록
                       count:
                         type: integer
-                        description: Total number of accessibility facilities found along the route.
+                        description: 접근성 시설 수
         '400':
-          description: Invalid request parameters.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    description: Detailed error information.
-        '401':
-          description: Authentication failed.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    properties:
-                      error:
-                        type: object
-                        properties:
-                          errorCode:
-                            type: string
-                            description: Error code.
-                          message:
-                            type: string
-                            description: Error message.
-                          details:
-                            type: string
-                            description: Detailed error information.
+          description: 잘못된 요청
         '500':
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                  details:
-                    type: object
-                    description: Detailed error information. 
+          description: 서버 오류 
